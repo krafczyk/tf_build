@@ -31,24 +31,21 @@ export TF_NEED_ROCM=0
 #export TF_SYSTEM_LIBS="boringssl,curl,cython,gif,icu,libjpeg_turbo,lmdb,nasm,pcre,png,pybind11,zlib
 export TF_SET_ANDROID_WORKSPACE=0
 export TF_DOWNLOAD_CLANG=0
-export GCC_HOST_COMPILER_PATH=${GCC_INSTALL_DIR}/bin/gcc
-export HOST_C_COMPILER=${GCC_INSTALL_DIR}/bin/gcc
-export HOST_CXX_COMPILER=${GCC_INSTALL_DIR}/bin/g++
+export GCC_HOST_COMPILER_PATH=/usr/bin/gcc-10
+export HOST_C_COMPILER=/usr/bin/gcc-10
+export HOST_CXX_COMPILER=/usr/bin/g++-10
 export TF_CUDA_CLANG=0
 export TF_CUDA_PATHS=${CUDA_DIR},${CONDA_PREFIX},/usr/lib,/usr
 export TF_CUDA_VERSION=$(${CUDA_DIR}/bin/nvcc --version | sed -n 's/^.*release \(.*\),.*/\1/p')
 export TF_CUDNN_VERSION=$(sed -n 's/^#define CUDNN_MAJOR\s*\(.*\).*/\1/p' ${CUDNN_DIR}/include/cudnn_version.h)
 
-#export TF_CUDA_COMPUTE_CAPABILITIES=sm_52,sm_61
-# NVIDIA V100 7.0
-export TF_CUDA_COMPUTE_CAPABILITIES=sm_70
-# NVIDIA A100 8.0
-#export TF_CUDA_COMPUTE_CAPABILITIES=sm_80
+# against GTX 980M, GTX 1080
+export TF_CUDA_COMPUTE_CAPABILITIES=sm_52,sm_61
 
-export CC=gcc
-export CXX=g++
+export CC=gcc-10
+export CXX=g++-10
 
-tensorflow_wheel="tensorflow-2.5.0-cp38-cp38-linux_${wheel_arch_suffix}.whl"
+tensorflow_wheel="tensorflow-2.5.1-cp38-cp38-linux_${wheel_arch_suffix}.whl"
 tensorflow_c_pkg="libtensorflow.tar.gz"
 
 # Target product directory
