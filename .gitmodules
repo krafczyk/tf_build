@@ -1,4 +1,4 @@
 [submodule "tensorflow"]
 	path = tensorflow
-	url = git@github.com:ncsa/tensorflow
+	url = git@github.com:krafczyk/tensorflow
 	shallow = true
