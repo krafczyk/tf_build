@@ -12,6 +12,5 @@ dependencies:
   - pip
   - wheel
   - cmake
-  - git # Need modern version of git to handle shallow copying submodules
   - pip:
     - keras_preprocessing
