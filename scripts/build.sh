@@ -45,11 +45,12 @@ export TF_CUDA_COMPUTE_CAPABILITIES=sm_52,sm_61
 export CC=gcc-10
 export CXX=g++-10
 
-tensorflow_wheel="tensorflow-2.5.1-cp38-cp38-linux_${wheel_arch_suffix}.whl"
+tensorflow_version="2.7.0"
+tensorflow_wheel="tensorflow-${tensorflow_version}-cp38-cp38-linux_${wheel_arch_suffix}.whl"
 tensorflow_c_pkg="libtensorflow.tar.gz"
 
 # Target product directory
-product_directory=build_py38_np1.19
+product_directory=build_tf${tensorflow_version}_py38_np1.19
 
 TARGET_DIR=${CUR_DIR}/tensorflow_products/${product_directory}
 
