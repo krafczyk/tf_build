@@ -48,60 +48,143 @@ export CXX=g++-10
 tensorflow_version="2.7.0"
 tensorflow_wheel="tensorflow-${tensorflow_version}-cp38-cp38-linux_${wheel_arch_suffix}.whl"
 tensorflow_c_pkg="libtensorflow.tar.gz"
+tensorflow_lite_pkg="libtensorflowlite.tar.gz"
 
 # Target product directory
 product_directory=build_tf${tensorflow_version}_py38_np1.19
 
 TARGET_DIR=${CUR_DIR}/tensorflow_products/${product_directory}
 
-if [ -e ${TARGET_DIR}/${tensorflow_wheel} ] && [ -e ${TARGET_DIR}/${tensorflow_c_pkg} ]; then
-    # It's already installed! Exit!
-    exit 0
+if [ ! -e ${TARGET_DIR} ]; then
+mkdir -p ${TARGET_DIR}
 fi;
 
+function check_and_configure() {
 # For now, be sure to use gcc-10 and g++-10! for configure
 if [ ! -e .tf_configure.bazelrc ]; then
 ## Maybe not? Currently we don't build with tensorrt support as it depends on cuda 10 and we're using cuda 11.
     python configure.py
 fi;
+}
 
+function prep_build_directories() {
 scratch_dir=${SCRATCH_DIR}/tensorflow_build
 if [ ! -e ${scratch_dir} ]; then
     mkdir -p ${scratch_dir}/temp
 fi;
 export TMP=${scratch_dir}/temp
 bazel_build_dir=${scratch_dir}/.bazel_dir
+}
+
+function build_bazel_target() {
+# Build all needed components
+bazel --output_user_root=${bazel_build_dir} \
+    build --config=opt --verbose_failures --sandbox_debug --action_env=PATH --action_env=LD_LIBRARY_PATH \
+        $1
+        #//tensorflow/tools/lib_package:libtensorflow \
+        //tensorflow/tools/pip_package:build_pip_package
+}
 
 ## clean (May be needed if changing options or example)
 #bazel --output_user_root=${bazel_build_dir} \
 #    clean
 
-if [ ! -e ./bazel-bin/tensorflow/tools/pip_package/build_pip_package ] || [ ! -e ./bazel-bin/tensorflow/tools/lib_package/${tensorflow_c_pkg} ]; then
+## Build all needed components
+#bazel --output_user_root=${bazel_build_dir} \
+#    build --config=opt --verbose_failures --sandbox_debug --action_env=PATH --action_env=LD_LIBRARY_PATH \
+#        #//tensorflow/tools/lib_package:libtensorflow \
+#        //tensorflow/tools/pip_package:build_pip_package
 
-# Build all needed components
-bazel --output_user_root=${bazel_build_dir} \
-    build --config=opt --verbose_failures --sandbox_debug --action_env=PATH --action_env=LD_LIBRARY_PATH \
-        //tensorflow/tools/lib_package:libtensorflow \
-        //tensorflow/tools/pip_package:build_pip_package
+####### -----Build tensorflow wheel------ ########
+if [ ! -e ${TARGET_DIR}/${tensorflow_wheel} ]; then
 
+# Prep build system 
+check_and_configure
+prep_build_directories
+
+# Build with bazel
+if [ ! -e ./bazel-bin/tensorflow/tools/pip_package/build_pip_package ];then
+build_bazel_target //tensorflow/tools/pip_package:build_pip_package
 fi;
 
-if [ ! -e /tmp/tensorflow_pkg/${tensorflow_wheel} ]; then
 # Build package
+if [ ! -e /tmp/tensorflow_pkg/${tensorflow_wheel} ]; then
 ./bazel-bin/tensorflow/tools/pip_package/build_pip_package /tmp/tensorflow_pkg
 fi;
 
-if [ ! -e ${TARGET_DIR} ]; then
-mkdir -p ${TARGET_DIR}
-fi;
-
-if [ ! -e ${TARGET_DIR}/${tensorflow_wheel} ]; then
+# Copy result to target directory
 cp /tmp/tensorflow_pkg/${tensorflow_wheel} ${TARGET_DIR}
-fi;
-if [ ! -e ${TARGET_DIR}/${tensorflow_c_pkg} ]; then
-cp ./bazel-bin/tensorflow/tools/lib_package/${tensorflow_c_pkg} ${TARGET_DIR}
+
 fi;
 
-## Install tensorflow and components
-#pip install ${TARGET_DIR}/${tensorflow_wheel}
-#tar -C ${CONDA_PREFIX} -xzf ${TARGET_DIR}/${tensorflow_c_pkg}
+####### -----Build tensorflow c library ------ ########
+if [ ! -e ${TARGET_DIR}/${tensorflow_c_pkg} ]; then
+
+# Prep build system 
+check_and_configure
+prep_build_directories
+
+# Build with bazel
+if [ ! -e ./bazel-bin/tensorflow/tools/lib_package/${tensorflow_c_pkg} ]; then
+build_bazel_target //tensorflow/tools/lib_package:libtensorflow
+fi;
+
+# Copy library
+cp ./bazel-bin/tensorflow/tools/lib_package/${tensorflow_c_pkg} ${TARGET_DIR}
+
+fi;
+
+####### -----Build tensorflow lite library ------ ########
+
+if [ ! -e ${TARGET_DIR}/${tensorflow_lite_pkg} ]; then
+
+# Build Tensorflow lite
+if [ ! -e tflite_build ]; then
+mkdir tflite_build
+fi;
+
+# Build static library
+if [ ! -e tflite_build/libtensorflow-lite.a ]; then
+
+cd tflite_build
+
+cmake ../tensorflow/lite -DTFLITE_ENABLE_GPU=ON
+cmake --build . -j16
+
+cd ..
+
+fi;
+
+if [ ! -e tflite_c_build ]; then
+mkdir tflite_c_build
+fi;
+
+if [ ! -e tflite_c_build/libtensorflowlite_c.so ]; then
+
+cd tflite_c_build
+
+cmake ../tensorflow/lite/c -DTFLITE_ENABLE_GPU=ON
+cmake --build . -j16
+
+cd ..
+
+fi;
+
+if [ ! -e libtensorflowlite ]; then
+mkdir -p libtensorflowlite
+mkdir -p libtensorflowlite/include
+mkdir -p libtensorflowlite/include/tensorflow/lite/c
+mkdir -p libtensorflowlite/lib
+fi;
+
+cp tflite_c_build/libtensorflowlite_c.so libtensorflowlite/lib
+cp tflite_build/libtensorflow-lite.a libtensorflowlite/lib
+cp tensorflow/lite/c/*.h libtensorflowlite/include/tensorflow/lite/c
+
+cd libtensorflowlite
+tar -zcvf ${TARGET_DIR}/${tensorflow_lite_pkg} include lib
+
+cd ..
+rm -r libtensorflowlite
+
+fi;
